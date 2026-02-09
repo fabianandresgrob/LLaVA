@@ -64,6 +64,8 @@ class ModelArguments:
     mm_use_im_patch_token: bool = field(default=True)
     mm_patch_merge_type: Optional[str] = field(default='flat')
     mm_vision_select_feature: Optional[str] = field(default="patch")
+    use_sae_bottleneck: bool = field(default=False, metadata={"help": "Whether to apply a frozen SAE bottleneck between vision encoder and projector."})
+    sae_checkpoint_path: Optional[str] = field(default=None, metadata={"help": "Path to the trained SAE checkpoint (directory containing ae.pt or direct .pt file)."})
 
 
 @dataclass
@@ -169,7 +171,7 @@ def get_mm_adapter_state_maybe_zero_3(named_params, keys_to_match):
 def find_all_linear_names(model):
     cls = torch.nn.Linear
     lora_module_names = set()
-    multimodal_keywords = ['mm_projector', 'vision_tower', 'vision_resampler']
+    multimodal_keywords = ['mm_projector', 'vision_tower', 'vision_resampler', 'sae_bottleneck']
     for name, module in model.named_modules():
         if any(mm_keyword in name for mm_keyword in multimodal_keywords):
             continue
@@ -216,6 +218,7 @@ def safe_save_model_for_hf_trainer(trainer: transformers.Trainer,
         cpu_state_dict = {
             key: value.cpu()
             for key, value in state_dict.items()
+            if "sae_bottleneck" not in key
         }
         del state_dict
         trainer._save(output_dir, state_dict=cpu_state_dict)  # noqa
@@ -942,6 +945,15 @@ def train(attn_implementation=None):
         training_args.use_im_start_end = model_args.mm_use_im_start_end
         model.config.mm_use_im_patch_token = model_args.mm_use_im_patch_token
         model.initialize_vision_tokenizer(model_args, tokenizer=tokenizer)
+
+        # Store SAE config and ensure SAE stays frozen
+        model.config.use_sae_bottleneck = model_args.use_sae_bottleneck
+        model.config.sae_checkpoint_path = model_args.sae_checkpoint_path
+        sae_module = getattr(model.get_model(), 'sae_bottleneck', None)
+        if sae_module is not None:
+            for p in sae_module.parameters():
+                p.requires_grad = False
+            rank0_print("SAE bottleneck loaded and frozen.")
 
     if training_args.bits in [4, 8]:
         from peft.tuners.lora import LoraLayer

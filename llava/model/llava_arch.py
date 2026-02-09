@@ -96,6 +96,15 @@ class LlavaMetaModel:
 
             self.mm_projector.load_state_dict(get_w(mm_projector_weights, 'mm_projector'))
 
+        # Initialize SAE bottleneck if requested
+        use_sae = getattr(model_args, 'use_sae_bottleneck', False)
+        sae_path = getattr(model_args, 'sae_checkpoint_path', None)
+        if use_sae and sae_path is not None:
+            from .sae_bottleneck import SAEBottleneck
+            self.sae_bottleneck = SAEBottleneck(sae_path)
+        else:
+            self.sae_bottleneck = None
+
 
 def unpad_image(tensor, original_size):
     """
@@ -139,6 +148,8 @@ class LlavaMetaForCausalLM(ABC):
 
     def encode_images(self, images):
         image_features = self.get_model().get_vision_tower()(images)
+        if hasattr(self.get_model(), 'sae_bottleneck') and self.get_model().sae_bottleneck is not None:
+            image_features = self.get_model().sae_bottleneck(image_features)
         image_features = self.get_model().mm_projector(image_features)
         return image_features
 

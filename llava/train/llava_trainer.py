@@ -252,4 +252,7 @@ class LLaVATrainer(Trainer):
         if getattr(self.args, 'tune_mm_mlp_adapter', False):
             pass
         else:
+            # Filter out SAE bottleneck parameters (frozen external component)
+            if state_dict is not None:
+                state_dict = {k: v for k, v in state_dict.items() if "sae_bottleneck" not in k}
             super(LLaVATrainer, self)._save(output_dir, state_dict)
