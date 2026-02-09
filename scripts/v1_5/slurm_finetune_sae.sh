@@ -17,13 +17,31 @@ mkdir -p logs
 # Adjust to match your LLaVA environment (conda or venv)
 conda activate llava
 
-# ---- Cache dirs (avoid filling home quota) ----
+# ---- Storage paths ----
+# Redirect HuggingFace cache to scratch (vicuna-7b ~14GB, CLIP ~1.7GB auto-download here)
 export HF_HUB_CACHE="$MCMLSCRATCH/.cache/huggingface/hub"
 export HF_DATASETS_CACHE="$MCMLSCRATCH/.cache/huggingface/datasets"
 
-echo "Python path: $(which python)"
-echo "Python version: $(python --version)"
-echo "GPU Check:"
+# Where the training data lives (images + annotation JSON)
+# You need to download and organize under this directory:
+#   $DATA_DIR/llava_v1_5_mix665k.json   (annotation, ~1GB)
+#   $DATA_DIR/coco/train2017/            (COCO images, ~19GB)
+#   $DATA_DIR/gqa/images/                (GQA images, ~20GB)
+#   $DATA_DIR/ocr_vqa/images/            (OCR-VQA images as .jpg, ~33GB)
+#   $DATA_DIR/textvqa/train_images/      (TextVQA images, ~7GB)
+#   $DATA_DIR/vg/VG_100K/               (VisualGenome part1, ~15GB)
+#   $DATA_DIR/vg/VG_100K_2/             (VisualGenome part2)
+DATA_DIR="$MCMLSCRATCH/llava_data"
+
+# Stage 1 pretrained projector (download once from HuggingFace):
+#   huggingface-cli download liuhaotian/llava-v1.5-mlp2x-336px-pretrain-vicuna-7b-v1.5
+# Then point to the mm_projector.bin file:
+PRETRAIN_PROJECTOR="$MCMLSCRATCH/checkpoints/llava-v1.5-7b-pretrain/mm_projector.bin"
+
+# SAE checkpoint (already trained)
+SAE_CHECKPOINT="$MCMLSCRATCH/checkpoints_dir/batch_top_k_20_x8/"
+
+echo "Python: $(which python) ($(python --version))"
 nvidia-smi
 
 # ---- Single GPU, ZeRO-3 + CPU offload ----
@@ -32,10 +50,10 @@ deepspeed llava/train/train_mem.py \
     --deepspeed ./scripts/zero3_offload.json \
     --model_name_or_path lmsys/vicuna-7b-v1.5 \
     --version v1 \
-    --data_path ./playground/data/llava_v1_5_mix665k.json \
-    --image_folder ./playground/data \
+    --data_path "$DATA_DIR/llava_v1_5_mix665k.json" \
+    --image_folder "$DATA_DIR" \
     --vision_tower openai/clip-vit-large-patch14-336 \
-    --pretrain_mm_mlp_adapter ./checkpoints/llava-v1.5-7b-pretrain/mm_projector.bin \
+    --pretrain_mm_mlp_adapter "$PRETRAIN_PROJECTOR" \
     --mm_projector_type mlp2x_gelu \
     --mm_vision_select_layer -2 \
     --mm_use_im_start_end False \
@@ -43,7 +61,7 @@ deepspeed llava/train/train_mem.py \
     --image_aspect_ratio pad \
     --group_by_modality_length True \
     --bf16 True \
-    --output_dir ./checkpoints/llava-v1.5-7b-finetune-sae \
+    --output_dir "$MCMLSCRATCH/checkpoints/llava-v1.5-7b-finetune-sae" \
     --num_train_epochs 1 \
     --per_device_train_batch_size 4 \
     --per_device_eval_batch_size 4 \
@@ -64,4 +82,4 @@ deepspeed llava/train/train_mem.py \
     --lazy_preprocess True \
     --report_to wandb \
     --use_sae_bottleneck True \
-    --sae_checkpoint_path ../sae-for-vlm/checkpoints_dir/batch_top_k_20_x8/
+    --sae_checkpoint_path "$SAE_CHECKPOINT"

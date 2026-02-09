@@ -6,17 +6,24 @@
 # Single GPU (80GB H100/A100): uses ZeRO-3 + CPU offload
 #   Effective batch size: 4 * 32 * 1 GPU = 128
 #
-# Multi GPU (4x H100): use zero3.json instead of zero3_offload.json
-#   Effective batch size: 16 * 2 * 4 GPUs = 128
+# For multi GPU (4x), change to:
+#   --deepspeed ./scripts/zero3.json
+#   --per_device_train_batch_size 16
+#   --gradient_accumulation_steps 2
+#
+# ---- Configure these paths ----
+DATA_DIR="./playground/data"
+PRETRAIN_PROJECTOR="./checkpoints/llava-v1.5-7b-pretrain/mm_projector.bin"
+SAE_CHECKPOINT="../sae-for-vlm/checkpoints_dir/batch_top_k_20_x8/"
 
 deepspeed llava/train/train_mem.py \
     --deepspeed ./scripts/zero3_offload.json \
     --model_name_or_path lmsys/vicuna-7b-v1.5 \
     --version v1 \
-    --data_path ./playground/data/llava_v1_5_mix665k.json \
-    --image_folder ./playground/data \
+    --data_path "$DATA_DIR/llava_v1_5_mix665k.json" \
+    --image_folder "$DATA_DIR" \
     --vision_tower openai/clip-vit-large-patch14-336 \
-    --pretrain_mm_mlp_adapter ./checkpoints/llava-v1.5-7b-pretrain/mm_projector.bin \
+    --pretrain_mm_mlp_adapter "$PRETRAIN_PROJECTOR" \
     --mm_projector_type mlp2x_gelu \
     --mm_vision_select_layer -2 \
     --mm_use_im_start_end False \
@@ -45,4 +52,4 @@ deepspeed llava/train/train_mem.py \
     --lazy_preprocess True \
     --report_to wandb \
     --use_sae_bottleneck True \
-    --sae_checkpoint_path ../sae-for-vlm/checkpoints_dir/batch_top_k_20_x8/
+    --sae_checkpoint_path "$SAE_CHECKPOINT"
