@@ -14,7 +14,7 @@
 # ---- Configure these paths ----
 DATA_DIR="./playground/data"
 PRETRAIN_PROJECTOR="./checkpoints/llava-v1.5-7b-pretrain/mm_projector.bin"
-SAE_CHECKPOINT="../sae-for-vlm/checkpoints_dir/batch_top_k_20_x8/"
+SAE_CHECKPOINT="../sae-for-vlm/checkpoints_dir/batch_top_k_20_x8/imagenet_train_activations_clip-vit-large-patch14-336_22_post_mlp_residual_batch_top_k_20_x8/trainer_0/ae.pt"
 
 deepspeed llava/train/train_mem.py \
     --deepspeed ./scripts/zero3_offload.json \

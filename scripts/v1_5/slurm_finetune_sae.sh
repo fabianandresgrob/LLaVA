@@ -39,7 +39,7 @@ DATA_DIR="$MCMLSCRATCH/llava_data"
 PRETRAIN_PROJECTOR="$MCMLSCRATCH/checkpoints/llava-v1.5-7b-pretrain/mm_projector.bin"
 
 # SAE checkpoint (already trained)
-SAE_CHECKPOINT="$MCMLSCRATCH/checkpoints_dir/batch_top_k_20_x8/"
+SAE_CHECKPOINT="$MCMLSCRATCH/checkpoints_dir/batch_top_k_20_x8/imagenet_train_activations_clip-vit-large-patch14-336_22_post_mlp_residual_batch_top_k_20_x8/trainer_0/ae.pt"
 
 echo "Python: $(which python) ($(python --version))"
 nvidia-smi
