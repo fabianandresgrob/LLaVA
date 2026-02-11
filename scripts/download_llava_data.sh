@@ -27,6 +27,7 @@ fi
 
 DATA_DIR="${MCMLSCRATCH}/llava_data"
 PROJECTOR_DIR="${MCMLSCRATCH}/checkpoints/llava-v1.5-7b-pretrain"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "=== LLaVA 1.5 Data Download ==="
 echo "Data directory: $DATA_DIR"
@@ -135,7 +136,6 @@ echo "[OCR-VQA] Downloading images from URLs in dataset.json..."
 OCR_VQA_JSON="$DATA_DIR/ocr_vqa/dataset.json"
 if [ ! -d "$DATA_DIR/ocr_vqa/images" ] || [ "$(ls "$DATA_DIR/ocr_vqa/images" 2>/dev/null | wc -l)" -lt 100 ]; then
     if [ -f "$OCR_VQA_JSON" ]; then
-        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
         # Don't let OCR-VQA failures kill the whole script (some URLs will be dead)
         set +e
         python "$SCRIPT_DIR/download_ocr_vqa.py" \
