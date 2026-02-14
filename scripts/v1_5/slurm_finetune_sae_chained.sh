@@ -18,6 +18,7 @@ mkdir -p logs
 source .venv/bin/activate
 
 # ---- Storage paths ----
+export CUDA_HOME="$HOME/cuda-12.1"
 export HF_HUB_CACHE="$MCMLSCRATCH/.cache/huggingface/hub"
 export HF_DATASETS_CACHE="$MCMLSCRATCH/.cache/huggingface/datasets"
 
@@ -57,7 +58,7 @@ nvidia-smi
 # ---- Training ----
 # Save every 500 steps (~12% of epoch). Keeps last 3 checkpoints.
 deepspeed llava/train/train_mem.py \
-    --deepspeed ./scripts/zero3.json \
+    --deepspeed ./scripts/zero3_offload.json \
     --model_name_or_path lmsys/vicuna-7b-v1.5 \
     --version v1 \
     --data_path "$DATA_DIR/llava_v1_5_mix665k.json" \
