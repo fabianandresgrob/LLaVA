@@ -968,6 +968,11 @@ def train(attn_implementation=None):
                     if training_args.bf16 and module.weight.dtype == torch.float32:
                         module = module.to(torch.bfloat16)
 
+    # Ensure all parameters are contiguous (required by DeepSpeed ZeRO-3 broadcast)
+    for param in model.parameters():
+        if not param.data.is_contiguous():
+            param.data = param.data.contiguous()
+
     data_module = make_supervised_data_module(tokenizer=tokenizer,
                                               data_args=data_args)
     trainer = LLaVATrainer(model=model,

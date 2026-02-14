@@ -15,7 +15,7 @@ set -e
 mkdir -p logs
 
 # ---- Activate environment ----
-conda activate llava
+source .venv/bin/activate
 
 # ---- Storage paths ----
 export HF_HUB_CACHE="$MCMLSCRATCH/.cache/huggingface/hub"
@@ -57,7 +57,7 @@ nvidia-smi
 # ---- Training ----
 # Save every 500 steps (~12% of epoch). Keeps last 3 checkpoints.
 deepspeed llava/train/train_mem.py \
-    --deepspeed ./scripts/zero3_offload.json \
+    --deepspeed ./scripts/zero3.json \
     --model_name_or_path lmsys/vicuna-7b-v1.5 \
     --version v1 \
     --data_path "$DATA_DIR/llava_v1_5_mix665k.json" \
@@ -98,9 +98,12 @@ deepspeed llava/train/train_mem.py \
 wait $!
 EXIT_CODE=$?
 
-if [ $EXIT_CODE -ne 0 ]; then
-    echo "$(date): Training exited with code $EXIT_CODE, resubmitting..."
-    sbatch "$0"
+# Only resubmit if training was actually making progress but ran out of time.
+# The signal handler (SIGUSR1) handles the timeout case and resubmits there.
+# If we get here with exit code 0, training completed successfully.
+# If non-zero, it's a real crash — don't resubmit.
+if [ $EXIT_CODE -eq 0 ]; then
+    echo "$(date): Training completed successfully!"
+else
+    echo "$(date): Training CRASHED with exit code $EXIT_CODE. Check logs. NOT resubmitting."
 fi
-
-echo "$(date): Job finished with exit code $EXIT_CODE"

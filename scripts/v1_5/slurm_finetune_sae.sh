@@ -15,7 +15,7 @@ mkdir -p logs
 
 # ---- Activate environment ----
 # Adjust to match your LLaVA environment (conda or venv)
-conda activate llava
+source .venv/bin/activate
 
 # ---- Storage paths ----
 # Redirect HuggingFace cache to scratch (vicuna-7b ~14GB, CLIP ~1.7GB auto-download here)
