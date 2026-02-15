@@ -35,6 +35,7 @@ from llava import conversation as conversation_lib
 from llava.model import *
 from llava.mm_utils import tokenizer_image_token
 
+import PIL
 from PIL import Image
 
 
@@ -671,6 +672,7 @@ class LazySupervisedDataset(Dataset):
         self.tokenizer = tokenizer
         self.list_data_dict = list_data_dict
         self.data_args = data_args
+        self.skipped_images = 0
 
     def __len__(self):
         return len(self.list_data_dict)
@@ -701,7 +703,14 @@ class LazySupervisedDataset(Dataset):
             image_file = self.list_data_dict[i]['image']
             image_folder = self.data_args.image_folder
             processor = self.data_args.image_processor
-            image = Image.open(os.path.join(image_folder, image_file)).convert('RGB')
+            try:
+                image = Image.open(os.path.join(image_folder, image_file)).convert('RGB')
+            except (PIL.UnidentifiedImageError, OSError, IOError) as e:
+                # Skip corrupt images by returning a random other sample
+                self.skipped_images += 1
+                if self.skipped_images <= 5 or self.skipped_images % 1000 == 0:
+                    rank0_print(f"Warning: skipping corrupt image {image_file}: {e} (total skipped: {self.skipped_images})")
+                return self.__getitem__((i + 1) % len(self.list_data_dict))
             if self.data_args.image_aspect_ratio == 'pad':
                 def expand2square(pil_img, background_color):
                     width, height = pil_img.size
