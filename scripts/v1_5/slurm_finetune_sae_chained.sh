@@ -4,7 +4,7 @@
 #SBATCH --error=logs/%x_%j.err
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=24
-#SBATCH --mem=120G
+#SBATCH --mem=200G
 #SBATCH --time=08:00:00
 #SBATCH --partition=mcml-hgx-a100-80x4,mcml-hgx-h100-94x4
 #SBATCH --qos=mcml

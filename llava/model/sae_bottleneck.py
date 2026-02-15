@@ -87,8 +87,9 @@ class SAEBottleneck(nn.Module):
         input_dtype = image_features.dtype
         B, N, D = image_features.shape
 
-        # Cast to float32 for SAE computation (SAE weights are float32)
-        x = image_features.float()
+        # Match input dtype to SAE weight dtype (ZeRO-3 may convert weights to bf16)
+        sae_dtype = self.sae.encoder.weight.dtype
+        x = image_features.to(sae_dtype)
 
         # Reshape to [B*N, D] for per-token SAE processing
         x_flat = x.reshape(B * N, D)
