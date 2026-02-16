@@ -853,6 +853,11 @@ def train(attn_implementation=None):
         )
     model.config.use_cache = False
 
+    # Fix invalid generation config from Vicuna (do_sample=False with temperature/top_p set)
+    if hasattr(model, 'generation_config'):
+        model.generation_config.temperature = 1.0
+        model.generation_config.top_p = 1.0
+
     if model_args.freeze_backbone:
         model.model.requires_grad_(False)
 
