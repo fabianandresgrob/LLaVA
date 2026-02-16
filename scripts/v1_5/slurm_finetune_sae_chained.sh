@@ -4,7 +4,7 @@
 #SBATCH --error=logs/%x_%j.err
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=24
-#SBATCH --mem=200G
+#SBATCH --mem=300G
 #SBATCH --time=08:00:00
 #SBATCH --partition=mcml-hgx-a100-80x4,mcml-hgx-h100-94x4
 #SBATCH --qos=mcml
@@ -89,7 +89,7 @@ deepspeed llava/train/train_mem.py \
     --tf32 True \
     --model_max_length 2048 \
     --gradient_checkpointing True \
-    --dataloader_num_workers 4 \
+    --dataloader_num_workers 2 \
     --lazy_preprocess True \
     --report_to wandb \
     --use_sae_bottleneck True \
