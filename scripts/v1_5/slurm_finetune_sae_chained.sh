@@ -8,7 +8,8 @@
 #SBATCH --time=08:00:00
 #SBATCH --partition=mcml-hgx-a100-80x4,mcml-hgx-h100-94x4
 #SBATCH --qos=mcml
-#SBATCH --signal=B:SIGUSR1@300
+#SBATCH --signal=B:SIGUSR1@900
+#SBATCH --no-requeue
 
 set -e
 
