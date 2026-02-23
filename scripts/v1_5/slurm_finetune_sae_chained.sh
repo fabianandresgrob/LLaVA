@@ -36,7 +36,7 @@ OUTPUT_DIR="$MCMLSCRATCH/checkpoints/llava-v1.5-7b-finetune-sae"
 # The launcher then detects the worker exited and shuts down too.
 handle_signal() {
     echo "$(date): Received signal, sending SIGTERM to training worker for graceful checkpoint save..."
-    LAUNCHER_PID=$(jobs -p)
+    # LAUNCHER_PID already set via $! in outer scope after starting deepspeed
     WORKER_PID=$(pgrep -f train_mem.py | head -1)
     if [ -n "$WORKER_PID" ]; then
         echo "$(date): Found worker PID $WORKER_PID, sending SIGTERM"
@@ -110,9 +110,10 @@ deepspeed --master_port $MASTER_PORT llava/train/train_mem.py \
     --report_to wandb \
     --use_sae_bottleneck True \
     --sae_checkpoint_path "$SAE_CHECKPOINT" &
+LAUNCHER_PID=$!
 
 # Wait for training process (needed for signal handling)
-wait $!
+wait $LAUNCHER_PID
 EXIT_CODE=$?
 
 # Only resubmit if training was actually making progress but ran out of time.
