@@ -37,7 +37,7 @@ OUTPUT_DIR="$MCMLSCRATCH/checkpoints/llava-v1.5-7b-finetune-sae"
 handle_signal() {
     echo "$(date): Received signal, sending SIGTERM to training worker for graceful checkpoint save..."
     LAUNCHER_PID=$(jobs -p)
-    WORKER_PID=$(pgrep -P "$LAUNCHER_PID" -f train_mem.py 2>/dev/null | head -1)
+    WORKER_PID=$(pgrep -f train_mem.py | head -1)
     if [ -n "$WORKER_PID" ]; then
         echo "$(date): Found worker PID $WORKER_PID, sending SIGTERM"
         kill -TERM "$WORKER_PID" 2>/dev/null
@@ -45,7 +45,8 @@ handle_signal() {
         echo "$(date): Worker PID not found, falling back to killing launcher"
         kill -TERM "$LAUNCHER_PID" 2>/dev/null
     fi
-    wait "$LAUNCHER_PID" 2>/dev/null || true
+    # 'wait' inside a trap handler can return early in bash — poll instead
+    while kill -0 "$LAUNCHER_PID" 2>/dev/null; do sleep 1; done
     echo "$(date): Trainer exited. Resubmitting job..."
     sbatch "$0"
     exit 0

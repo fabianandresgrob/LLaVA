@@ -13,7 +13,7 @@ rm -f "$CHECKPOINT_FILE"
 handle_signal() {
     echo "$(date): SIGUSR1 received — finding worker PID..."
     LAUNCHER_PID=$(jobs -p)
-    WORKER_PID=$(pgrep -P "$LAUNCHER_PID" -f test_signal_worker.py 2>/dev/null | head -1)
+    WORKER_PID=$(pgrep -f test_signal_worker.py | head -1)
     if [ -n "$WORKER_PID" ]; then
         echo "$(date): Found worker PID $WORKER_PID — sending SIGTERM"
         kill -TERM "$WORKER_PID" 2>/dev/null
@@ -21,7 +21,8 @@ handle_signal() {
         echo "$(date): Worker PID not found! Falling back to killing launcher."
         kill -TERM "$LAUNCHER_PID" 2>/dev/null
     fi
-    wait "$LAUNCHER_PID" 2>/dev/null || true
+    # 'wait' inside a trap handler can return early in bash — poll instead
+    while kill -0 "$LAUNCHER_PID" 2>/dev/null; do sleep 1; done
     echo "$(date): Worker exited."
     if [ -f "$CHECKPOINT_FILE" ]; then
         echo "✓ SUCCESS: Checkpoint was saved!"
