@@ -12,7 +12,8 @@ rm -f "$CHECKPOINT_FILE"
 # --- Same handler as slurm_finetune_sae_chained.sh ---
 handle_signal() {
     echo "$(date): SIGUSR1 received — finding worker PID..."
-    LAUNCHER_PID=$(jobs -p)
+    # LAUNCHER_PID already set via $! in outer scope — don't use jobs -p here
+    # (the timer subshell may still appear in the job list, giving multiple PIDs)
     WORKER_PID=$(pgrep -f test_signal_worker.py | head -1)
     if [ -n "$WORKER_PID" ]; then
         echo "$(date): Found worker PID $WORKER_PID — sending SIGTERM"
