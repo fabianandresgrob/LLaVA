@@ -29,21 +29,31 @@ SAE_CHECKPOINT="$MCMLSCRATCH/checkpoints_dir/batch_top_k_20_x8/imagenet_train_ac
 OUTPUT_DIR="$MCMLSCRATCH/checkpoints/llava-v1.5-7b-finetune-sae"
 
 # ---- Handle preemption/timeout: save checkpoint on SIGUSR1 ----
-# SLURM sends SIGUSR1 300s before timeout (--signal=B:SIGUSR1@300)
-# The HF Trainer catches SIGTERM and saves a checkpoint before exiting
+# SLURM sends SIGUSR1 900s before timeout (--signal=B:SIGUSR1@900).
+# We send SIGTERM directly to the Python worker (not the deepspeed launcher),
+# so the HF Trainer's SIGTERM handler fires: sets should_save=True +
+# should_training_stop=True, saves after the current step, then exits cleanly.
+# The launcher then detects the worker exited and shuts down too.
 handle_signal() {
-    echo "$(date): Received signal, letting trainer save checkpoint..."
-    # Send SIGTERM to the deepspeed process so Trainer saves checkpoint
-    kill -TERM $(jobs -p) 2>/dev/null
-    wait
-    echo "$(date): Trainer exited after signal. Resubmitting job..."
+    echo "$(date): Received signal, sending SIGTERM to training worker for graceful checkpoint save..."
+    LAUNCHER_PID=$(jobs -p)
+    WORKER_PID=$(pgrep -P "$LAUNCHER_PID" -f train_mem.py 2>/dev/null | head -1)
+    if [ -n "$WORKER_PID" ]; then
+        echo "$(date): Found worker PID $WORKER_PID, sending SIGTERM"
+        kill -TERM "$WORKER_PID" 2>/dev/null
+    else
+        echo "$(date): Worker PID not found, falling back to killing launcher"
+        kill -TERM "$LAUNCHER_PID" 2>/dev/null
+    fi
+    wait "$LAUNCHER_PID" 2>/dev/null || true
+    echo "$(date): Trainer exited. Resubmitting job..."
     sbatch "$0"
     exit 0
 }
 trap handle_signal SIGUSR1
 
 # ---- Resume logic ----
-# The training script (train.py:978-981) already detects checkpoint-* dirs
+# The training script already detects checkpoint-* dirs
 # in output_dir and passes resume_from_checkpoint=True automatically.
 # The SAE bottleneck is re-initialized fresh from SAE_CHECKPOINT every time
 # (it's frozen and excluded from training checkpoints by design).
@@ -56,9 +66,13 @@ fi
 echo "Python: $(which python) ($(python --version))"
 nvidia-smi
 
+# Pick a free port to avoid collisions if two jobs land on the same node
+export MASTER_PORT=$(python -c "import socket; s=socket.socket(); s.bind(('',0)); print(s.getsockname()[1]); s.close()")
+echo "Using MASTER_PORT=$MASTER_PORT"
+
 # ---- Training ----
 # Save every 500 steps (~12% of epoch). Keeps last 3 checkpoints.
-deepspeed llava/train/train_mem.py \
+deepspeed --master_port $MASTER_PORT llava/train/train_mem.py \
     --deepspeed ./scripts/zero3_offload.json \
     --model_name_or_path lmsys/vicuna-7b-v1.5 \
     --version v1 \
