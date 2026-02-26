@@ -23,6 +23,20 @@ import pathlib
 from typing import Dict, Optional, Sequence, List
 
 import torch
+import torch.optim.lr_scheduler as _lr_sched
+
+# When resuming a checkpoint that was saved with DeepSpeed's WarmupLR scheduler,
+# the state dict lacks the 'lr_lambdas' key expected by PyTorch's LambdaLR.
+# This one-time patch makes LambdaLR tolerant of that missing key so training
+# can resume cleanly after switching from the DeepSpeed-managed scheduler to
+# HF Trainer's cosine scheduler.
+_original_lambda_lr_load = _lr_sched.LambdaLR.load_state_dict
+def _patched_lambda_lr_load(self, state_dict):
+    if "lr_lambdas" not in state_dict:
+        state_dict = dict(state_dict)
+        state_dict["lr_lambdas"] = None
+    _original_lambda_lr_load(self, state_dict)
+_lr_sched.LambdaLR.load_state_dict = _patched_lambda_lr_load
 
 import transformers
 import tokenizers
