@@ -33,9 +33,12 @@ import torch.optim.lr_scheduler as _lr_sched
 _original_lambda_lr_load = _lr_sched.LambdaLR.load_state_dict
 def _patched_lambda_lr_load(self, state_dict):
     if "lr_lambdas" not in state_dict:
-        state_dict = dict(state_dict)
-        state_dict["lr_lambdas"] = None
-    _original_lambda_lr_load(self, state_dict)
+        # Checkpoint was saved with DeepSpeed's WarmupLR — it has no lr_lambdas.
+        # Restore only the base scheduler state (last_epoch, base_lrs, etc.)
+        # so the cosine schedule resumes from the right step, keeping our lambda.
+        _lr_sched._LRScheduler.load_state_dict(self, state_dict)
+    else:
+        _original_lambda_lr_load(self, state_dict)
 _lr_sched.LambdaLR.load_state_dict = _patched_lambda_lr_load
 
 import transformers
