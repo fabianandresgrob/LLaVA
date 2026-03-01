@@ -36,10 +36,21 @@ OUTPUT_DIR="$MCMLSCRATCH/checkpoints/llava-v1.5-7b-finetune-sae"
 # The launcher then detects the worker exited and shuts down too.
 handle_signal() {
     echo "$(date): Received signal, sending SIGTERM to training worker for graceful checkpoint save..."
-    # LAUNCHER_PID already set via $! in outer scope after starting deepspeed
-    WORKER_PID=$(pgrep -f train_mem.py | grep -v "^${LAUNCHER_PID}$" | tail -1)
+    # Deepspeed spawns a 3-level process tree: runner (LAUNCHER_PID) -> launch.py -> training worker.
+    # All three have train_mem.py in their command line, so we traverse the tree instead of
+    # relying on pgrep ordering.
+    echo "$(date): All train_mem.py PIDs: $(pgrep -f train_mem.py | tr '\n' ' ') | LAUNCHER_PID=$LAUNCHER_PID"
+    LAUNCH_PID=$(pgrep -P "$LAUNCHER_PID" 2>/dev/null | head -1)
+    echo "$(date): launch.py PID (child of runner): $LAUNCH_PID"
+    WORKER_PID=$(pgrep -P "$LAUNCH_PID" 2>/dev/null | head -1)
+    echo "$(date): training worker PID (child of launch.py): $WORKER_PID"
+    if [ -z "$WORKER_PID" ]; then
+        # Fallback: highest-numbered PID among train_mem.py processes (started last = worker)
+        WORKER_PID=$(pgrep -f train_mem.py | grep -v "^${LAUNCHER_PID}$" | sort -n | tail -1)
+        echo "$(date): Fallback worker PID: $WORKER_PID"
+    fi
     if [ -n "$WORKER_PID" ]; then
-        echo "$(date): Found worker PID $WORKER_PID, sending SIGTERM"
+        echo "$(date): Sending SIGTERM to PID $WORKER_PID"
         kill -TERM "$WORKER_PID" 2>/dev/null
     else
         echo "$(date): Worker PID not found, falling back to killing launcher"
