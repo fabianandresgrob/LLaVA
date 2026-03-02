@@ -8,9 +8,7 @@
 #SBATCH --partition=cpu_p
 #SBATCH --qos=cpu_normal
 
-# Requires $SCRATCH and $HF_HUB_CACHE to be set in ~/.bashrc:
-#   export SCRATCH=/lustre/groups/eml/projects/<username>
-#   export HF_HUB_CACHE="$SCRATCH/.cache/huggingface/hub"
+# Requires $SCRATCH and $HF_HUB_CACHE to be set in ~/.bashrc — do not hardcode paths here.
 
 set -e
 mkdir -p logs

@@ -22,10 +22,11 @@ export CUDA_HOME=/usr/local/cuda-12.6
 export PATH=$CUDA_HOME/bin:$PATH
 export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
 
-# ---- Storage paths (set $SCRATCH and $SAE_CHECKPOINT_PATH in ~/.bashrc) ----
-# export SCRATCH=/lustre/groups/eml/projects/<username>
-# export SAE_CHECKPOINT_PATH=$SCRATCH/<path-to-ae.pt>
-# export HF_HUB_CACHE=$SCRATCH/.cache/huggingface/hub
+# ---- Storage paths ----
+# Set these in ~/.bashrc — do not hardcode personal paths in this script:
+#   export SCRATCH=<your project directory>
+#   export SAE_CHECKPOINT_PATH=<path to ae.pt>
+#   export HF_HUB_CACHE=$SCRATCH/.cache/huggingface/hub
 if [ -z "$SCRATCH" ]; then
     echo "ERROR: \$SCRATCH is not set. Add it to your ~/.bashrc"
     exit 1
