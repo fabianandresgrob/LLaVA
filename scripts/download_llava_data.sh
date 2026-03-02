@@ -20,13 +20,16 @@
 set -e
 
 # ---- Configure ----
-if [ -z "$MCMLSCRATCH" ]; then
-    echo "ERROR: \$MCMLSCRATCH is not set. Please set it to your scratch directory."
+# Set $SCRATCH to your cluster scratch/project directory in ~/.bashrc, e.g.:
+#   export SCRATCH=/lustre/groups/eml/projects/<username>   # HMGU
+#   export SCRATCH=$MCMLSCRATCH                             # MCML
+if [ -z "$SCRATCH" ]; then
+    echo "ERROR: \$SCRATCH is not set. Add 'export SCRATCH=<your project dir>' to your ~/.bashrc"
     exit 1
 fi
 
-DATA_DIR="${MCMLSCRATCH}/llava_data"
-PROJECTOR_DIR="${MCMLSCRATCH}/checkpoints/llava-v1.5-7b-pretrain"
+DATA_DIR="${SCRATCH}/llava_data"
+PROJECTOR_DIR="${SCRATCH}/checkpoints/llava-v1.5-7b-pretrain"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "=== LLaVA 1.5 Data Download ==="
@@ -183,4 +186,4 @@ else
 fi
 echo ""
 echo "Done! You can now run training with:"
-echo "  sbatch scripts/v1_5/slurm_finetune_sae.sh"
+echo "  sbatch scripts/v1_5/slurm_finetune_sae_hmgu.sh"
