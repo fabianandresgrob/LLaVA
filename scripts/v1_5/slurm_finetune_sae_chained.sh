@@ -30,19 +30,43 @@ OUTPUT_DIR="$MCMLSCRATCH/checkpoints/llava-v1.5-7b-finetune-sae"
 
 # ---- Handle preemption/timeout: save checkpoint on SIGUSR1 ----
 # SLURM sends SIGUSR1 900s before timeout (--signal=B:SIGUSR1@900).
-# We send SIGTERM directly to the Python worker (not the deepspeed launcher),
-# so the HF Trainer's SIGTERM handler fires: sets should_save=True +
-# should_training_stop=True, saves after the current step, then exits cleanly.
-# The launcher then detects the worker exited and shuts down too.
+# We send SIGTERM directly to the Python training worker so HF Trainer's handler fires:
+# sets should_save=True + should_training_stop=True, saves after current step, exits cleanly.
+#
+# Process tree (all match 'pgrep -f train_mem.py' because fork() inherits /proc/PID/cmdline):
+#   runner (LAUNCHER_PID=$!) -> launch.py -> training worker -> DataLoader workers (x2)
+# We use /proc parent traversal to uniquely identify the training worker.
+
+# Read the parent PID of a process from /proc (reliable on Linux).
+ppid_of() { awk '/^PPid:/{print $2}' /proc/$1/status 2>/dev/null; }
+
 handle_signal() {
     echo "$(date): Received signal, sending SIGTERM to training worker for graceful checkpoint save..."
-    # Deepspeed spawns a 3-level process tree: runner (LAUNCHER_PID) -> launch.py -> training worker.
-    # All three have train_mem.py in their command line. Exclude the runner (LAUNCHER_PID) and
-    # take the highest PID — Linux assigns PIDs sequentially, so the worker (spawned last) has the highest.
-    # Verified with 3-level simulation test (test_signal_3level.sh) on the login node.
-    echo "$(date): All train_mem.py PIDs: $(pgrep -f train_mem.py | tr '\n' ' ') | LAUNCHER_PID=$LAUNCHER_PID"
-    WORKER_PID=$(pgrep -f train_mem.py | grep -v "^${LAUNCHER_PID}$" | sort -n | tail -1)
-    echo "$(date): Targeting worker PID: $WORKER_PID"
+    PIDS=$(pgrep -f train_mem.py | grep -v "^${LAUNCHER_PID}$")
+    echo "$(date): Matching PIDs (excl. runner): $(echo $PIDS | tr '\n' ' ') | LAUNCHER_PID=$LAUNCHER_PID"
+
+    # Step 1: find launch.py — direct child of runner
+    LAUNCH_PID=""
+    for pid in $PIDS; do
+        if [ "$(ppid_of $pid)" = "$LAUNCHER_PID" ]; then
+            LAUNCH_PID=$pid
+            break
+        fi
+    done
+    echo "$(date): launch.py PID: $LAUNCH_PID"
+
+    # Step 2: find training worker — direct child of launch.py
+    WORKER_PID=""
+    if [ -n "$LAUNCH_PID" ]; then
+        for pid in $PIDS; do
+            if [ "$(ppid_of $pid)" = "$LAUNCH_PID" ]; then
+                WORKER_PID=$pid
+                break
+            fi
+        done
+    fi
+    echo "$(date): Training worker PID: $WORKER_PID"
+
     if [ -n "$WORKER_PID" ]; then
         kill -TERM "$WORKER_PID" 2>/dev/null
     else
