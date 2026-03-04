@@ -260,27 +260,33 @@ if args.data_path is not None:
         n_valid = (labels != IGNORE_INDEX).sum().item()
         n_total = labels.shape[0]
 
-        # Simulate image expansion truncation (what prepare_inputs_labels_for_multimodal does)
+        # Simulate the full training pipeline:
+        #   1. DataCollator truncates to MODEL_MAX_LENGTH  (BEFORE the model)
+        #   2. prepare_inputs_labels_for_multimodal expands image token
+        #   3. Model truncates to tokenizer_model_max_length (= MODEL_MAX_LENGTH)
         IMAGE_TOKEN_INDEX = -200
         MODEL_MAX_LENGTH = 2048
         NUM_IMAGE_PATCHES = 576
-        img_pos = (input_ids_tok == IMAGE_TOKEN_INDEX).nonzero(as_tuple=True)[0]
+
+        # Step 1: data-collator truncation
+        input_ids_dc = input_ids_tok[:MODEL_MAX_LENGTH]
+        labels_dc = labels[:MODEL_MAX_LENGTH]
+        n_total_dc = input_ids_dc.shape[0]
+
+        # Step 2+3: image expansion then model truncation
+        img_pos = (input_ids_dc == IMAGE_TOKEN_INDEX).nonzero(as_tuple=True)[0]
         if len(img_pos) > 0:
-            # After image expansion: seq_len = n_total - 1 + NUM_IMAGE_PATCHES
-            expanded_len = n_total - 1 + NUM_IMAGE_PATCHES
-            # Labels before image: labels[:img_pos]
-            # Image labels: IGNORE * NUM_IMAGE_PATCHES
-            # Labels after image: labels[img_pos+1:]
+            expanded_len = n_total_dc - 1 + NUM_IMAGE_PATCHES
             labels_expanded = torch.cat([
-                labels[:img_pos[0]],
-                torch.full((NUM_IMAGE_PATCHES,), IGNORE_INDEX, dtype=labels.dtype),
-                labels[img_pos[0]+1:]
+                labels_dc[:img_pos[0]],
+                torch.full((NUM_IMAGE_PATCHES,), IGNORE_INDEX, dtype=labels_dc.dtype),
+                labels_dc[img_pos[0]+1:]
             ])
             labels_after_trunc = labels_expanded[:MODEL_MAX_LENGTH]
             n_valid_after_trunc = (labels_after_trunc != IGNORE_INDEX).sum().item()
         else:
-            expanded_len = n_total
-            n_valid_after_trunc = n_valid
+            expanded_len = n_total_dc
+            n_valid_after_trunc = (labels_dc != IGNORE_INDEX).sum().item()
 
         if n_valid_after_trunc == 0 and n_valid > 0:
             status = "TRUNC"  # Labels exist but truncated away
@@ -296,15 +302,15 @@ if args.data_path is not None:
             n_turns = len(conversations)
             word_count = sum(len(c['value'].split()) for c in sample['conversations'])
             print(f"  [{status}] sample {idx} (id={sample.get('id','?')}, turns={n_turns}, words={word_count}): "
-                  f"labels before_trunc={n_valid}/{n_total}, "
-                  f"after_trunc={n_valid_after_trunc} "
-                  f"(expanded_len={expanded_len})")
+                  f"preproc={n_valid}/{n_total} tok"
+                  f", dc_trunc={n_total_dc}"
+                  f", after_expand={n_valid_after_trunc}/{expanded_len}")
             if n_valid_after_trunc == 0 and n_valid > 0:
                 img_pos_val = img_pos[0].item() if len(img_pos) > 0 else -1
-                first_nonignore = (labels != IGNORE_INDEX).nonzero(as_tuple=True)[0]
+                first_nonignore = (labels_dc != IGNORE_INDEX).nonzero(as_tuple=True)[0]
                 resp_start = first_nonignore[0].item() if len(first_nonignore) > 0 else -1
-                print(f"         image_token_pos={img_pos_val}, response_start_in_orig={resp_start}")
-                print(f"         response_start_after_expansion={resp_start + NUM_IMAGE_PATCHES - 1}")
+                print(f"         image_token_pos={img_pos_val}, first_resp_label_in_dc={resp_start}")
+                print(f"         first_resp_after_expansion={resp_start + NUM_IMAGE_PATCHES - 1} (limit={MODEL_MAX_LENGTH})")
                 print()
 
     print()
