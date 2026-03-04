@@ -224,9 +224,19 @@ if args.data_path is not None:
     with open(args.data_path) as f:
         data = json.load(f)
 
-    # Collect first N image samples
-    image_samples = [d for d in data if 'image' in d][:args.n_samples]
-    print(f"Testing {len(image_samples)} image samples...")
+    all_image_samples = [d for d in data if 'image' in d]
+
+    # Sort by word count (descending) to test the LONGEST samples first
+    # (these are processed first by the modality-length sampler in training)
+    all_image_samples.sort(
+        key=lambda d: sum(len(c['value'].split()) for c in d['conversations']),
+        reverse=True
+    )
+    image_samples = all_image_samples[:args.n_samples]
+
+    print(f"Testing {len(image_samples)} LONGEST image samples (by word count)...")
+    print(f"  Longest sample word count: {sum(len(c['value'].split()) for c in image_samples[0]['conversations'])}")
+    print(f"  Shortest in this set:      {sum(len(c['value'].split()) for c in image_samples[-1]['conversations'])}")
     print()
 
     n_fail = 0
@@ -244,27 +254,57 @@ if args.data_path is not None:
             sentence["value"] = sentence["value"].replace(DEFAULT_IMAGE_TOKEN, DEFAULT_IMAGE_TOKEN)
 
         sources = [conversations]
-        n_valid, n_total, prompt = check_sources(sources, has_image=True)
+        result = preprocess_v1(sources, tokenizer, has_image=True)
+        labels = result["labels"][0]
+        input_ids_tok = result["input_ids"][0]
+        n_valid = (labels != IGNORE_INDEX).sum().item()
+        n_total = labels.shape[0]
 
-        status = "OK" if n_valid > 0 else "FAIL"
-        if n_valid == 0:
+        # Simulate image expansion truncation (what prepare_inputs_labels_for_multimodal does)
+        IMAGE_TOKEN_INDEX = -200
+        MODEL_MAX_LENGTH = 2048
+        NUM_IMAGE_PATCHES = 576
+        img_pos = (input_ids_tok == IMAGE_TOKEN_INDEX).nonzero(as_tuple=True)[0]
+        if len(img_pos) > 0:
+            # After image expansion: seq_len = n_total - 1 + NUM_IMAGE_PATCHES
+            expanded_len = n_total - 1 + NUM_IMAGE_PATCHES
+            # Labels before image: labels[:img_pos]
+            # Image labels: IGNORE * NUM_IMAGE_PATCHES
+            # Labels after image: labels[img_pos+1:]
+            labels_expanded = torch.cat([
+                labels[:img_pos[0]],
+                torch.full((NUM_IMAGE_PATCHES,), IGNORE_INDEX, dtype=labels.dtype),
+                labels[img_pos[0]+1:]
+            ])
+            labels_after_trunc = labels_expanded[:MODEL_MAX_LENGTH]
+            n_valid_after_trunc = (labels_after_trunc != IGNORE_INDEX).sum().item()
+        else:
+            expanded_len = n_total
+            n_valid_after_trunc = n_valid
+
+        if n_valid_after_trunc == 0 and n_valid > 0:
+            status = "TRUNC"  # Labels exist but truncated away
+            n_fail += 1
+        elif n_valid == 0:
+            status = "FAIL"
             n_fail += 1
         else:
+            status = "OK"
             n_success += 1
 
-        if idx < 5 or n_valid == 0:
+        if idx < 5 or n_valid_after_trunc == 0:
             n_turns = len(conversations)
-            print(f"  [{status}] sample {idx} (id={sample.get('id','?')}, turns={n_turns}): "
-                  f"{n_valid}/{n_total} valid labels")
-            if n_valid == 0:
-                print(f"         prompt start: {repr(prompt[:150])}")
-                # Show the round split
-                rounds = prompt.split(conv.sep2)
-                for i, r in enumerate(rounds[:3]):
-                    print(f"         round[{i}]: {repr(r[:100])}")
-                    if r:
-                        parts = r.split(sep)
-                        print(f"         split by sep -> {len(parts)} parts")
+            word_count = sum(len(c['value'].split()) for c in sample['conversations'])
+            print(f"  [{status}] sample {idx} (id={sample.get('id','?')}, turns={n_turns}, words={word_count}): "
+                  f"labels before_trunc={n_valid}/{n_total}, "
+                  f"after_trunc={n_valid_after_trunc} "
+                  f"(expanded_len={expanded_len})")
+            if n_valid_after_trunc == 0 and n_valid > 0:
+                img_pos_val = img_pos[0].item() if len(img_pos) > 0 else -1
+                first_nonignore = (labels != IGNORE_INDEX).nonzero(as_tuple=True)[0]
+                resp_start = first_nonignore[0].item() if len(first_nonignore) > 0 else -1
+                print(f"         image_token_pos={img_pos_val}, response_start_in_orig={resp_start}")
+                print(f"         response_start_after_expansion={resp_start + NUM_IMAGE_PATCHES - 1}")
                 print()
 
     print()
