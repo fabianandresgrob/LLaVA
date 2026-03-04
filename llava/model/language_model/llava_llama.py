@@ -70,7 +70,9 @@ class LlavaLlamaForCausalLM(LlamaForCausalLM, LlavaMetaForCausalLM):
         return_dict: Optional[bool] = None,
     ) -> Union[Tuple, CausalLMOutputWithPast]:
 
+        _multimodal_called = False
         if inputs_embeds is None:
+            _multimodal_called = True
             (
                 input_ids,
                 position_ids,
@@ -88,7 +90,23 @@ class LlavaLlamaForCausalLM(LlamaForCausalLM, LlavaMetaForCausalLM):
                 image_sizes
             )
 
-        return super().forward(
+        # DEBUG: trace labels and inputs_embeds entering the LLM
+        _fwd_count = getattr(self, '_fwd_debug_count', 0)
+        if _fwd_count < 3:
+            self._fwd_debug_count = _fwd_count + 1
+            _n_valid = (labels != -100).sum().item() if labels is not None else -1
+            _ie_req = inputs_embeds.requires_grad if inputs_embeds is not None else None
+            _ii_shape = input_ids.shape if input_ids is not None else None
+            _ie_shape = inputs_embeds.shape if inputs_embeds is not None else None
+            print(
+                f"DEBUG llava_llama fwd[{_fwd_count}]: multimodal_called={_multimodal_called}, "
+                f"input_ids={_ii_shape}, inputs_embeds={_ie_shape}, "
+                f"inputs_embeds.requires_grad={_ie_req}, "
+                f"labels non-IGNORE={_n_valid}, model.training={self.training}",
+                flush=True
+            )
+
+        outputs = super().forward(
             input_ids=input_ids,
             attention_mask=attention_mask,
             position_ids=position_ids,
@@ -100,6 +118,15 @@ class LlavaLlamaForCausalLM(LlamaForCausalLM, LlavaMetaForCausalLM):
             output_hidden_states=output_hidden_states,
             return_dict=return_dict
         )
+
+        # DEBUG: log the actual loss value from LlamaForCausalLM
+        if _fwd_count < 3 and getattr(outputs, 'loss', None) is not None:
+            print(
+                f"DEBUG llava_llama fwd[{_fwd_count}]: loss={outputs.loss.item():.6f}",
+                flush=True
+            )
+
+        return outputs
 
     @torch.no_grad()
     def generate(
