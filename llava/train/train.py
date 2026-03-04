@@ -473,6 +473,11 @@ def preprocess_v1(
 
     # Mask targets
     sep = conv.sep + conv.roles[1] + ": "
+    if has_image and not getattr(preprocess_v1, '_template_printed', False):
+        preprocess_v1._template_printed = True
+        print(f"DEBUG preprocess_v1: version={conv.version}, sep={repr(conv.sep)}, sep2={repr(conv.sep2)}, roles={conv.roles}, sep_style={conv.sep_style}", flush=True)
+        if conversations:
+            print(f"DEBUG preprocess_v1: first conversation (first 300 chars): {repr(conversations[0][:300])}", flush=True)
     for conversation, target in zip(conversations, targets):
         total_len = int(target.ne(tokenizer.pad_token_id).sum())
 
@@ -481,10 +486,16 @@ def preprocess_v1(
         target[:cur_len] = IGNORE_INDEX
         for i, rou in enumerate(rounds):
             if rou == "":
+                if has_image and getattr(preprocess_v1, '_break_count', 0) < 3:
+                    preprocess_v1._break_count = getattr(preprocess_v1, '_break_count', 0) + 1
+                    print(f"DEBUG preprocess_v1: break on empty round (i={i}), sep={repr(sep)}, sep2={repr(conv.sep2)}, conv_start={repr(conversation[:120])}", flush=True)
                 break
 
             parts = rou.split(sep)
             if len(parts) != 2:
+                if has_image and getattr(preprocess_v1, '_break_count', 0) < 3:
+                    preprocess_v1._break_count = getattr(preprocess_v1, '_break_count', 0) + 1
+                    print(f"DEBUG preprocess_v1: break len(parts)={len(parts)} (i={i}), sep={repr(sep)}, rou_start={repr(rou[:120])}, parts_0={repr(parts[0][:60])}", flush=True)
                 break
             parts[0] += sep
 
