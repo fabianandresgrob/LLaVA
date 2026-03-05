@@ -284,20 +284,6 @@ class LlavaMetaForCausalLM(ABC):
         # Truncate sequences to max length as image embeddings can make the sequence longer
         tokenizer_model_max_length = getattr(self.config, 'tokenizer_model_max_length', None)
         if tokenizer_model_max_length is not None:
-            # DEBUG: log label survival through truncation (first 3 batches)
-            _dbg_count = getattr(self, '_truncation_log_count', 0)
-            if _dbg_count < 3:
-                self._truncation_log_count = _dbg_count + 1
-                for _bi, _nl in enumerate(new_labels):
-                    _before = (_nl != -100).sum().item()
-                    _after_len = min(_nl.shape[0], tokenizer_model_max_length)
-                    _after = (_nl[:tokenizer_model_max_length] != -100).sum().item()
-                    print(
-                        f"DEBUG truncation [batch{_dbg_count} sample{_bi}]: "
-                        f"seq_len={_nl.shape[0]} -> {_after_len}, "
-                        f"non-IGNORE labels: {_before} -> {_after}",
-                        flush=True
-                    )
             new_input_embeds = [x[:tokenizer_model_max_length] for x in new_input_embeds]
             new_labels = [x[:tokenizer_model_max_length] for x in new_labels]
 
