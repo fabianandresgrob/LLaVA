@@ -60,7 +60,7 @@ deepspeed --num_gpus=1 --master_port $MASTER_PORT llava/train/train_mem.py \
     --bf16 True \
     --output_dir "$OUTPUT_DIR" \
     --num_train_epochs 1 \
-    --per_device_train_batch_size 4 \
+    --per_device_train_batch_size 1 \
     --gradient_accumulation_steps 1 \
     --evaluation_strategy "no" \
     --save_strategy "no" \
