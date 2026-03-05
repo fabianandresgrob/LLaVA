@@ -71,6 +71,7 @@ deepspeed --num_gpus=1 --master_port $MASTER_PORT llava/train/train_mem.py \
     --gradient_accumulation_steps 1 \
     --evaluation_strategy "no" \
     --save_strategy "no" \
+    --optim adamw_bnb_8bit \
     --learning_rate 2e-5 \
     --weight_decay 0. \
     --warmup_ratio 0.03 \
