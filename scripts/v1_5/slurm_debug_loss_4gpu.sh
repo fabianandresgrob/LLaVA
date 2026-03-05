@@ -52,7 +52,7 @@ echo "Using MASTER_PORT=$MASTER_PORT"
 # ---- 4-GPU ZeRO-2 debug run: 10 steps, no checkpoint, no wandb ----
 # Identical to production except: max_steps=10, save_strategy=no, report_to=none
 deepspeed --master_port $MASTER_PORT llava/train/train_mem.py \
-    --deepspeed ./scripts/zero2.json \
+    --deepspeed ./scripts/zero2_sae.json \
     --model_name_or_path lmsys/vicuna-7b-v1.5 \
     --version v1 \
     --data_path "$DATA_DIR/llava_v1_5_mix665k.json" \

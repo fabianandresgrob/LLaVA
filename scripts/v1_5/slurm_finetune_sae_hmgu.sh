@@ -66,7 +66,7 @@ fi
 # 4x H100 80GB, ZeRO-2 (no CPU offload needed).
 # Global batch size = 128: per_device(4) x grad_accum(8) x gpus(4) = 128
 deepspeed --master_port $MASTER_PORT llava/train/train_mem.py \
-    --deepspeed ./scripts/zero2.json \
+    --deepspeed ./scripts/zero2_sae.json \
     --model_name_or_path lmsys/vicuna-7b-v1.5 \
     --version v1 \
     --data_path "$DATA_DIR/llava_v1_5_mix665k.json" \
