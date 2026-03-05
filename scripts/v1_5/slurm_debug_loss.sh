@@ -17,8 +17,15 @@ mkdir -p logs
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate llava
 
-# ---- CUDA ----
-export CUDA_HOME=/usr/local/cuda-12.6
+# ---- CUDA: match the version PyTorch was compiled with to avoid DeepSpeed JIT mismatch ----
+TORCH_CUDA_VER=$(python -c "import torch; print(torch.version.cuda)")
+echo "PyTorch compiled with CUDA: $TORCH_CUDA_VER"
+if [ -d "/usr/local/cuda-$TORCH_CUDA_VER" ]; then
+    export CUDA_HOME="/usr/local/cuda-$TORCH_CUDA_VER"
+else
+    export CUDA_HOME="/usr/local/cuda"
+fi
+echo "Using CUDA_HOME=$CUDA_HOME"
 export PATH=$CUDA_HOME/bin:$PATH
 export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
 
