@@ -92,7 +92,8 @@ class LlavaLlamaForCausalLM(LlamaForCausalLM, LlavaMetaForCausalLM):
 
         # DEBUG: trace labels and inputs_embeds entering the LLM
         _fwd_count = getattr(self, '_fwd_debug_count', 0)
-        if _fwd_count < 3:
+        _DEBUG_LIMIT = 20  # covers micro-steps 0-19: first 12 of step 1 + first 12 of step 2
+        if _fwd_count < _DEBUG_LIMIT:
             self._fwd_debug_count = _fwd_count + 1
             _n_valid = (labels != -100).sum().item() if labels is not None else -1
             _ie_req = inputs_embeds.requires_grad if inputs_embeds is not None else None
@@ -102,7 +103,8 @@ class LlavaLlamaForCausalLM(LlamaForCausalLM, LlavaMetaForCausalLM):
                 f"DEBUG llava_llama fwd[{_fwd_count}]: multimodal_called={_multimodal_called}, "
                 f"input_ids={_ii_shape}, inputs_embeds={_ie_shape}, "
                 f"inputs_embeds.requires_grad={_ie_req}, "
-                f"labels non-IGNORE={_n_valid}, model.training={self.training}",
+                f"labels={'None' if labels is None else f'non-IGNORE={_n_valid}/{labels.numel()}'}, "
+                f"model.training={self.training}",
                 flush=True
             )
 
@@ -120,7 +122,7 @@ class LlavaLlamaForCausalLM(LlamaForCausalLM, LlavaMetaForCausalLM):
         )
 
         # DEBUG: log the actual loss value from LlamaForCausalLM
-        if _fwd_count < 3 and getattr(outputs, 'loss', None) is not None:
+        if _fwd_count < _DEBUG_LIMIT and getattr(outputs, 'loss', None) is not None:
             print(
                 f"DEBUG llava_llama fwd[{_fwd_count}]: loss={outputs.loss.item():.6f}",
                 flush=True
