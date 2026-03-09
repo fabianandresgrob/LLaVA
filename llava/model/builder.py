@@ -159,6 +159,16 @@ def load_pretrained_model(model_path, model_base, model_name, load_8bit=False, l
             vision_tower.to(device=device_map, dtype=torch.float16)
         image_processor = vision_tower.image_processor
 
+        if getattr(model.config, 'use_sae_bottleneck', False):
+            sae_path = getattr(model.config, 'sae_checkpoint_path', None)
+            if sae_path is None:
+                raise ValueError("model.config.use_sae_bottleneck=True but sae_checkpoint_path is not set in config")
+            from llava.model.sae_bottleneck import SAEBottleneck
+            sae = SAEBottleneck(sae_path)
+            sae = sae.to(device=model.device, dtype=torch.float16)
+            model.get_model().sae_bottleneck = sae
+            print(f"Loaded SAE bottleneck from {sae_path}")
+
     if hasattr(model.config, "max_sequence_length"):
         context_len = model.config.max_sequence_length
     else:

@@ -108,3 +108,7 @@ Images are stored under `./playground/data/` organized by dataset (coco/train201
 - **Image aspect ratio modes**: `pad` (expand to square with mean-color padding), `anyres` (divide into patches at multiple resolutions), `square` (standard resize/crop).
 - **LoRA/QLoRA**: Enabled via `--lora_enable`, configured with `--lora_r`, `--lora_alpha`, `--bits` (4/8/16).
 - **Custom optimizer** in `LLaVATrainer`: Supports separate learning rate for the projector via `--mm_projector_lr`.
+
+## Commit Message Style
+
+Use a single short imperative line. No bullet body, no co-author trailer. Example: `Add SAE inference support in builder.py`
