@@ -40,7 +40,7 @@ echo "$(date): Running baseline model (lmsys/llava-v1.5-7b)"
 cd "$LMMS_EVAL_DIR"
 python -m lmms_eval \
     --model llava \
-    --model_args pretrained=lmsys/llava-v1.5-7b \
+    --model_args pretrained=liuhaotian/llava-v1.5-7b \
     --tasks vlms_are_biased \
     --batch_size 1 \
     --output_path "$RESULTS_DIR/baseline" \
