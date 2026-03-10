@@ -32,7 +32,7 @@ fi
 
 SAE_MODEL_DIR="$SCRATCH/checkpoints/llava-v1.5-7b-finetune-sae"
 RESULTS_DIR="$SCRATCH/results/vlms_are_biased"
-LMMS_EVAL_DIR="$SCRATCH/lmms-eval"
+LMMS_EVAL_DIR="$HOME/projects/lmms-eval"
 
 mkdir -p "$RESULTS_DIR"
 
