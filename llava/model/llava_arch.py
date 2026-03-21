@@ -101,7 +101,14 @@ class LlavaMetaModel:
         sae_path = getattr(model_args, 'sae_checkpoint_path', None)
         if use_sae and sae_path is not None:
             from .sae_bottleneck import SAEBottleneck
-            self.sae_bottleneck = SAEBottleneck(sae_path)
+            encode_only = getattr(model_args, 'sae_encode_only', False)
+            self.sae_bottleneck = SAEBottleneck(sae_path, encode_only=encode_only)
+            # Override mm_hidden_size so the projector is built with the correct input dim
+            self.config.mm_hidden_size = self.sae_bottleneck.output_dim
+            self.config.sae_encode_only = encode_only
+            # Rebuild projector with the updated input dimension
+            if getattr(self, 'mm_projector', None) is not None:
+                self.mm_projector = build_vision_projector(self.config)
         else:
             self.sae_bottleneck = None
 

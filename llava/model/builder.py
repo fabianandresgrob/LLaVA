@@ -164,10 +164,11 @@ def load_pretrained_model(model_path, model_base, model_name, load_8bit=False, l
             if sae_path is None:
                 raise ValueError("model.config.use_sae_bottleneck=True but sae_checkpoint_path is not set in config")
             from llava.model.sae_bottleneck import SAEBottleneck
-            sae = SAEBottleneck(sae_path)
+            encode_only = getattr(model.config, 'sae_encode_only', False)
+            sae = SAEBottleneck(sae_path, encode_only=encode_only)
             sae = sae.to(device=model.device, dtype=torch.float16)
             model.get_model().sae_bottleneck = sae
-            print(f"Loaded SAE bottleneck from {sae_path}")
+            print(f"Loaded SAE bottleneck from {sae_path} (encode_only={encode_only})")
 
     if hasattr(model.config, "max_sequence_length"):
         context_len = model.config.max_sequence_length

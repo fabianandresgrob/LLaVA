@@ -18,17 +18,23 @@ logger = logging.getLogger(__name__)
 
 class SAEBottleneck(nn.Module):
     """
-    A frozen SAE bottleneck that applies encode then decode to visual features.
+    A frozen SAE bottleneck inserted between the CLIP vision encoder and the MLP projector.
 
     The SAE was trained on patch token activations from CLIP ViT-L/14-336 layer 22
     using the BatchTopK architecture from the dictionary_learning library.
+
+    Two modes:
+    - encode_only=False (default): encode then decode, output is reconstructed 1024d features
+    - encode_only=True: encode only, output is sparse 8192d SAE activations
 
     At inference time, BatchTopK uses a learned threshold: ReLU(x - gamma)
     instead of the batch top-k selection used during SAE training.
     """
 
-    def __init__(self, sae_checkpoint_path: str, log_stats: bool = True, log_interval: int = 100):
+    def __init__(self, sae_checkpoint_path: str, encode_only: bool = False,
+                 log_stats: bool = True, log_interval: int = 100):
         super().__init__()
+        self.encode_only = encode_only
         self.log_stats = log_stats
         self.log_interval = log_interval
         self._step_counter = 0
@@ -43,9 +49,11 @@ class SAEBottleneck(nn.Module):
         self.sae.eval()
 
         logger.info(
-            f"SAE Bottleneck initialized: activation_dim={self.sae.activation_dim}, "
+            f"SAE Bottleneck initialized (encode_only={self.encode_only}): "
+            f"activation_dim={self.sae.activation_dim}, "
             f"dict_size={self.sae.dict_size}, k={self.sae.k.item()}, "
-            f"threshold={self.sae.threshold.item():.6f}"
+            f"threshold={self.sae.threshold.item():.6f}, "
+            f"output_dim={self.output_dim}"
         )
 
     def _load_sae(self, checkpoint_path: str):
@@ -73,16 +81,24 @@ class SAEBottleneck(nn.Module):
         sae = BatchTopKSAE.from_pretrained(ae_path)
         return sae
 
+    @property
+    def output_dim(self) -> int:
+        """Output dimension: dict_size (8192) if encode_only, activation_dim (1024) otherwise."""
+        if self.encode_only:
+            return self.sae.dict_size
+        return self.sae.activation_dim
+
     @torch.no_grad()
     def forward(self, image_features: torch.Tensor) -> torch.Tensor:
         """
-        Apply SAE encode/decode bottleneck to visual features.
+        Apply SAE bottleneck to visual features.
 
         Args:
             image_features: [B, num_tokens, D] visual features from CLIP
 
         Returns:
-            Reconstructed features of same shape [B, num_tokens, D]
+            If encode_only: sparse activations [B, num_tokens, dict_size]
+            Otherwise: reconstructed features [B, num_tokens, D]
         """
         input_dtype = image_features.dtype
         B, N, D = image_features.shape
@@ -103,11 +119,15 @@ class SAEBottleneck(nn.Module):
             if self._step_counter % self.log_interval == 0:
                 self._log_sae_stats(x_flat, x_hat_flat, encoded_acts)
 
-        # Reshape back to [B, N, D]
-        x_hat = x_hat_flat.reshape(B, N, D)
+        if self.encode_only:
+            # Return sparse SAE activations [B, N, dict_size]
+            out = encoded_acts.reshape(B, N, -1)
+        else:
+            # Return reconstructed features [B, N, D]
+            out = x_hat_flat.reshape(B, N, D)
 
         # Cast back to input dtype (bf16 during mixed precision training)
-        return x_hat.to(input_dtype)
+        return out.to(input_dtype)
 
     def _log_sae_stats(self, x: torch.Tensor, x_hat: torch.Tensor, encoded_acts: torch.Tensor):
         """Log SAE statistics for wandb monitoring."""
@@ -154,5 +174,7 @@ class SAEBottleneck(nn.Module):
             f"activation_dim={self.sae.activation_dim}, "
             f"dict_size={self.sae.dict_size}, "
             f"k={self.sae.k.item()}, "
-            f"threshold={self.sae.threshold.item():.6f}"
+            f"threshold={self.sae.threshold.item():.6f}, "
+            f"encode_only={self.encode_only}, "
+            f"output_dim={self.output_dim}"
         )

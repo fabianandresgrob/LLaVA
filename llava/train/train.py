@@ -84,6 +84,7 @@ class ModelArguments:
     mm_vision_select_feature: Optional[str] = field(default="patch")
     use_sae_bottleneck: bool = field(default=False, metadata={"help": "Whether to apply a frozen SAE bottleneck between vision encoder and projector."})
     sae_checkpoint_path: Optional[str] = field(default=None, metadata={"help": "Path to the trained SAE checkpoint (directory containing ae.pt or direct .pt file)."})
+    sae_encode_only: bool = field(default=False, metadata={"help": "If True, use only the SAE encoder (8192d sparse output). If False, use full encode/decode (1024d reconstructed output)."})
 
 
 @dataclass
@@ -980,6 +981,7 @@ def train(attn_implementation=None):
         # Store SAE config and ensure SAE stays frozen
         model.config.use_sae_bottleneck = model_args.use_sae_bottleneck
         model.config.sae_checkpoint_path = model_args.sae_checkpoint_path
+        model.config.sae_encode_only = getattr(model_args, 'sae_encode_only', False)
         sae_module = getattr(model.get_model(), 'sae_bottleneck', None)
         if sae_module is not None:
             for p in sae_module.parameters():
