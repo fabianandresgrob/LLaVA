@@ -76,6 +76,19 @@ class LlavaMetaModel:
         self.config.mm_vision_select_feature = mm_vision_select_feature
         self.config.mm_patch_merge_type = mm_patch_merge_type
 
+        # Initialize SAE bottleneck if requested (must happen before projector
+        # so mm_hidden_size is correct for encode-only mode)
+        use_sae = getattr(model_args, 'use_sae_bottleneck', False)
+        sae_path = getattr(model_args, 'sae_checkpoint_path', None)
+        if use_sae and sae_path is not None:
+            from .sae_bottleneck import SAEBottleneck
+            encode_only = getattr(model_args, 'sae_encode_only', False)
+            self.sae_bottleneck = SAEBottleneck(sae_path, encode_only=encode_only)
+            self.config.mm_hidden_size = self.sae_bottleneck.output_dim
+            self.config.sae_encode_only = encode_only
+        else:
+            self.sae_bottleneck = None
+
         if getattr(self, 'mm_projector', None) is None:
             self.mm_projector = build_vision_projector(self.config)
 
@@ -85,6 +98,9 @@ class LlavaMetaModel:
                     torch.randn(self.config.hidden_size, dtype=self.dtype) * embed_std
                 )
         else:
+            # Rebuild projector if SAE changed the input dimension
+            if use_sae and self.sae_bottleneck is not None:
+                self.mm_projector = build_vision_projector(self.config)
             # In case it is frozen by LoRA
             for p in self.mm_projector.parameters():
                 p.requires_grad = True
@@ -95,22 +111,6 @@ class LlavaMetaModel:
                 return {k.split(keyword + '.')[1]: v for k, v in weights.items() if keyword in k}
 
             self.mm_projector.load_state_dict(get_w(mm_projector_weights, 'mm_projector'))
-
-        # Initialize SAE bottleneck if requested
-        use_sae = getattr(model_args, 'use_sae_bottleneck', False)
-        sae_path = getattr(model_args, 'sae_checkpoint_path', None)
-        if use_sae and sae_path is not None:
-            from .sae_bottleneck import SAEBottleneck
-            encode_only = getattr(model_args, 'sae_encode_only', False)
-            self.sae_bottleneck = SAEBottleneck(sae_path, encode_only=encode_only)
-            # Override mm_hidden_size so the projector is built with the correct input dim
-            self.config.mm_hidden_size = self.sae_bottleneck.output_dim
-            self.config.sae_encode_only = encode_only
-            # Rebuild projector with the updated input dimension
-            if getattr(self, 'mm_projector', None) is not None:
-                self.mm_projector = build_vision_projector(self.config)
-        else:
-            self.sae_bottleneck = None
 
 
 def unpad_image(tensor, original_size):
