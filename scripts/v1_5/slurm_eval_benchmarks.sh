@@ -5,7 +5,7 @@
 #SBATCH --gres=gpu:h100:1
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=100G
-#SBATCH --time=04:00:00
+#SBATCH --time=08:00:00
 #SBATCH --partition=gpu_p
 #SBATCH --qos=gpu_normal
 
@@ -41,7 +41,7 @@ cd "$LMMS_EVAL_DIR"
 python -m lmms_eval \
     --model llava \
     --model_args pretrained=liuhaotian/llava-v1.5-7b \
-    --tasks vlms_are_biased \
+    --tasks gqa,textvqa_val,pope,mme,mmbench_en_dev \
     --batch_size 1 \
     --output_path "$RESULTS_DIR/baseline" \
     --log_samples \
@@ -51,7 +51,7 @@ echo "$(date): Running SAE model ($SAE_MODEL_DIR)"
 python -m lmms_eval \
     --model llava \
     --model_args pretrained="$SAE_MODEL_DIR" \
-    --tasks vlms_are_biased \
+    --tasks gqa,textvqa_val,pope,mme,mmbench_en_dev \
     --batch_size 1 \
     --output_path "$RESULTS_DIR/sae" \
     --log_samples \

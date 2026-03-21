@@ -109,6 +109,23 @@ Images are stored under `./playground/data/` organized by dataset (coco/train201
 - **LoRA/QLoRA**: Enabled via `--lora_enable`, configured with `--lora_r`, `--lora_alpha`, `--bits` (4/8/16).
 - **Custom optimizer** in `LLaVATrainer`: Supports separate learning rate for the projector via `--mm_projector_lr`.
 
+## NeurIPS 2026 Plan
+
+See `PLAN.md` for the current implementation plan. This repo handles Workstream 3 (SAE mitigation):
+- **Exp 3.1 (priority):** Encode-only projector — feed 8192d sparse SAE activations directly to a new projector, skip SAE decoder
+- **Exp 3.3 (conditional):** Encode/decode retrain from stage 1
+
+Branch: `hmgu-training`. SAE bottleneck code is in `llava/model/sae_bottleneck.py`.
+
+Related repos:
+- `../sae-for-vlm/` — SAE checkpoints (BatchTopKSAE, CLIP layer 22, 8192 features)
+- `../lmms-eval/` — benchmark evaluation of trained models
+- `../vlm-mechanistic-analysis/` — mechanistic analysis (Workstream 2)
+
+## Package Manager
+
+Use `uv` as default. Dependencies in `pyproject.toml`. For server training with conda, install into the conda env with `uv pip install -e .` or `pip install -e .`.
+
 ## Commit Message Style
 
 Use a single short imperative line. No bullet body, no co-author trailer. Example: `Add SAE inference support in builder.py`
