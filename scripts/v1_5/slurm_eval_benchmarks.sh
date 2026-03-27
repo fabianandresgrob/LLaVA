@@ -31,7 +31,8 @@ if [ -z "$SCRATCH" ]; then
 fi
 
 SAE_MODEL_DIR="$SCRATCH/checkpoints/llava-v1.5-7b-finetune-sae"
-RESULTS_DIR="$SCRATCH/results/vlms_are_biased"
+SAE_ENCODE_ONLY_DIR="$SCRATCH/checkpoints/llava-v1.5-7b-finetune-sae-encode-only"
+RESULTS_DIR="$SCRATCH/results/sae_llava_models"
 LMMS_EVAL_DIR="$HOME/projects/lmms-eval"
 
 mkdir -p "$RESULTS_DIR"
@@ -41,7 +42,7 @@ cd "$LMMS_EVAL_DIR"
 python -m lmms_eval \
     --model llava \
     --model_args pretrained=liuhaotian/llava-v1.5-7b \
-    --tasks gqa,textvqa_val,pope,mme,mmbench_en_dev \
+    --tasks vlms_are_biased,vilp,vlind_bench \
     --batch_size 1 \
     --output_path "$RESULTS_DIR/baseline" \
     --log_samples \
@@ -51,9 +52,19 @@ echo "$(date): Running SAE model ($SAE_MODEL_DIR)"
 python -m lmms_eval \
     --model llava \
     --model_args pretrained="$SAE_MODEL_DIR" \
-    --tasks gqa,textvqa_val,pope,mme,mmbench_en_dev \
+    --tasks vlms_are_biased,vilp,vlind_bench \
     --batch_size 1 \
     --output_path "$RESULTS_DIR/sae" \
+    --log_samples \
+    --verbosity INFO
+
+echo "$(date): Running SAE encode-only model ($SAE_ENCODE_ONLY_DIR)"
+python -m lmms_eval \
+    --model llava \
+    --model_args pretrained="$SAE_ENCODE_ONLY_DIR" \
+    --tasks vlms_are_biased,vilp,vlind_bench \
+    --batch_size 1 \
+    --output_path "$RESULTS_DIR/sae_encode_only" \
     --log_samples \
     --verbosity INFO
 
