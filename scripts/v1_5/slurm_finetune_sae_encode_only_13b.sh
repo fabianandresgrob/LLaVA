@@ -5,7 +5,7 @@
 #SBATCH --gres=gpu:h100:4
 #SBATCH --cpus-per-task=64
 #SBATCH --mem=500G
-#SBATCH --time=1-12:00:00
+#SBATCH --time=1-00:00:00
 #SBATCH --partition=gpu_p
 #SBATCH --qos=gpu_normal
 
