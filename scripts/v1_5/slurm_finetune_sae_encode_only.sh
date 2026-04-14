@@ -38,10 +38,14 @@ if [ -z "$SAE_CHECKPOINT_PATH" ]; then
     echo "ERROR: \$SAE_CHECKPOINT_PATH is not set. Add it to your ~/.bashrc"
     exit 1
 fi
+if [ -z "$SAE_TAG" ]; then
+    echo "ERROR: \$SAE_TAG is not set (e.g. 'imagenet' or 'cc3m-laion')."
+    exit 1
+fi
 
 DATA_DIR="$SCRATCH/llava_data"
-PRETRAIN_PROJECTOR="$SCRATCH/checkpoints/llava-v1.5-7b-pretrain-sae-encode-only/mm_projector.bin"
-OUTPUT_DIR="$SCRATCH/checkpoints/llava-v1.5-7b-finetune-sae-encode-only"
+PRETRAIN_PROJECTOR="$SCRATCH/checkpoints/llava-v1.5-7b-pretrain-sae-encode-only-${SAE_TAG}/mm_projector.bin"
+OUTPUT_DIR="$SCRATCH/checkpoints/llava-v1.5-7b-finetune-sae-encode-only-${SAE_TAG}"
 
 # Verify stage 1 projector exists
 if [ ! -f "$PRETRAIN_PROJECTOR" ]; then

@@ -42,10 +42,14 @@ if [ -z "$SAE_CHECKPOINT_PATH" ]; then
     echo "ERROR: \$SAE_CHECKPOINT_PATH is not set. Add it to your ~/.bashrc"
     exit 1
 fi
+if [ -z "$SAE_TAG" ]; then
+    echo "ERROR: \$SAE_TAG is not set (e.g. 'imagenet' or 'cc3m-laion')."
+    exit 1
+fi
 
 DATA_DIR="$SCRATCH/llava_data"
 PRETRAIN_PROJECTOR="$SCRATCH/checkpoints/llava-v1.5-7b-pretrain/mm_projector.bin"
-OUTPUT_DIR="$SCRATCH/checkpoints/llava-v1.5-7b-finetune-sae"
+OUTPUT_DIR="$SCRATCH/checkpoints/llava-v1.5-7b-finetune-sae-${SAE_TAG}"
 
 echo "Python: $(which python) ($(python --version))"
 nvidia-smi

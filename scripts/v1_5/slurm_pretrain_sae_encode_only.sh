@@ -38,9 +38,13 @@ if [ -z "$SAE_CHECKPOINT_PATH" ]; then
     echo "ERROR: \$SAE_CHECKPOINT_PATH is not set. Add it to your ~/.bashrc"
     exit 1
 fi
+if [ -z "$SAE_TAG" ]; then
+    echo "ERROR: \$SAE_TAG is not set (e.g. 'imagenet' or 'cc3m-laion')."
+    exit 1
+fi
 
 DATA_DIR="$SCRATCH/llava_data"
-OUTPUT_DIR="$SCRATCH/checkpoints/llava-v1.5-7b-pretrain-sae-encode-only"
+OUTPUT_DIR="$SCRATCH/checkpoints/llava-v1.5-7b-pretrain-sae-encode-only-${SAE_TAG}"
 
 # Verify pretrain data exists
 if [ ! -f "$DATA_DIR/LLaVA-Pretrain/blip_laion_cc_sbu_558k.json" ]; then
